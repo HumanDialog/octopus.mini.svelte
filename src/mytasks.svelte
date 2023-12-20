@@ -94,9 +94,7 @@
 
         let result = await reef.post(`${task.$ref}/MoveBefore`,
                                     {
-                                        beforeTask:{
-                                            $ref: prev.$ref
-                                        }
+                                        beforeTask: prev.$ref
                                     });
         if(result)
             task.Order = result.Task.Order
@@ -115,9 +113,7 @@
 
         let result = await reef.post(`${task.$ref}/MoveAfter`,
                                     {
-                                        afterTask:{
-                                            $ref: next.$ref
-                                        }
+                                        afterTask: next.$ref
                                     });
         if(result)
             task.Order = result.Task.Order   
@@ -169,7 +165,7 @@
             new_task = await reef.post(`/user/AddTaskAfter`,
                             {
                                 title: title,
-                                afterTask: { $ref: after.$ref }
+                                afterTask: after.$ref
                             })
             if(!new_task)
                 return null;
@@ -267,7 +263,7 @@
                 bind:this={list_component}>
             <ListTitle a='Title'/>
             <ListSummary a='Summary'/>
-            <ListInserter action={add_task_after}/>
+            <ListInserter action={add_task_after} icon />
 
             <ListComboProperty  name="OnList" association>
                 <ComboSource objects={lists} key="$ref" name='Name'/>
@@ -287,7 +283,7 @@
 
     </Page>
 {:else}
-    <Spinner/>
+    <Spinner delay={3000}/>
 {/if}
 
 

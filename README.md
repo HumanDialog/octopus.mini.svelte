@@ -15,7 +15,7 @@ and then
 `npm run dev`
 
 
-The detailed description of the source code you can find on ObjectReef website at https://objectreef.dev/samples/octopus/mini.
+The detailed description of the source code you can find on ObjectReef website at https://objectreef.dev/samples/octopus-mini.
 
 ## Dependencies
 For the sake of clarity of the example, we use the [@humandialog/forms.svelte](https://github.com/HumanDialog/forms.svelte) components library available under the MIT license.

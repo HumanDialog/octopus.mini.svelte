@@ -143,7 +143,7 @@
             return;
 
         [prev.Order, list.Order] = [list.Order, prev.Order];
-        tasklists.swap(prev, list);
+        tasklists = tasklists.swap(prev, list);
 
         let res = await reef.get(`/app/Lists/${list.Id}/MoveUp`)
         if(res)
@@ -157,7 +157,7 @@
             return;
 
         [next.Order, list.Order] = [list.Order, next.Order]
-        tasklists.swap(list, next);
+        tasklists = tasklists.swap(list, next);
 
         let res = await reef.get(`/app/Lists/${list.Id}/MoveDown`)
         if(res)
@@ -265,7 +265,7 @@
             </SidebarGroup>
             
             {:else}
-                <Spinner/>
+                <Spinner delay={3000}/>
             {/if}
 
         </Sidebar>

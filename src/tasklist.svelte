@@ -26,6 +26,11 @@
     
     async function on_params_changed(...args)
     {
+        const segments = $location.split('/');
+        const found_idx = segments.findIndex( s => s == 'tasklist');
+        if(found_idx < 0)
+            return;
+
         if(users.length == 0)
         {
             let res = await reef.get('/app/Users')
@@ -33,9 +38,12 @@
                 users = res.User;
         }
         
-
-        let a = $location.match(/(?<=tasklist\/)\w+/i);
-        let list_id = a ? a[0] : 'first';
+        
+        let list_id = '';
+        if(!segments.length)
+            list_id = 'first';
+        else
+            list_id = segments[segments.length-1]
 
         current_list = null
         
@@ -95,9 +103,7 @@
 
         let result = await reef.post(`${task.$ref}/MoveBefore`,
                                     {
-                                        beforeTask:{
-                                            $ref: prev.$ref
-                                        }
+                                        beforeTask: prev.$ref
                                     });
         if(result)
             task.Order = result.Task.Order
@@ -116,9 +122,7 @@
 
         let result = await reef.post(`${task.$ref}/MoveAfter`,
                                     {
-                                        afterTask:{
-                                            $ref: next.$ref
-                                        }
+                                        afterTask: next.$ref
                                     });
         if(result)
             task.Order = result.Task.Order   
@@ -170,7 +174,7 @@
             new_task = await reef.post(`/app/Lists/${current_list.Id}/AddTaskAfter`,
                             {
                                 title: title,
-                                afterTask: { $ref: after.$ref }
+                                afterTask: after.$ref
                             })
             if(!new_task)
                 return null;
@@ -267,7 +271,7 @@
                 bind:this={list_component}>
             <ListTitle a='Title'/>
             <ListSummary a='Summary'/>
-            <ListInserter action={add_task_after}/>
+            <ListInserter action={add_task_after} icon/>
 
             <ListComboProperty  name="Responsible" association>
                 <ComboSource objects={users} key="$ref" name='Name'/>
@@ -286,7 +290,7 @@
         </List>
     </Page>
 {:else}
-    <Spinner/>
+    <Spinner delay={3000}/>
 {/if}
 
 
