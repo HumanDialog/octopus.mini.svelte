@@ -7,24 +7,25 @@
     import {reef} from '@humandialog/auth.svelte'
     import Members from './members.svelte'
     import {push} from 'svelte-spa-router'
+    import AppIcon from './appicon.svelte'
     
     reef.configure( {
                     mode: 'local',
                     remote: {
                         iss :       "https://objectreef.io",
-                        client_id : "<YOUR_REGISTERED_CLIENT_ID>",
-                        client_secret : "<YOUR_REGISTERED_CLIENT_SECRET>",
-                        scope :     "openid profile email <YOUR_DEPLOYED_APP_ID>",
-						api_version: "v001"},
+                        clientID : "minioctopus_kcdo",
+                        clientSecret : "d4MYn0AG44w8xe8yr3KS3yrn638aN7oU",
+                        scope :     "openid profile email octopus_kduxjvaf",
+                        apiVersion: "v001"},
                     local: {
                         api:    "http://127.0.0.1:1996/",
+                        //api:    "http://192.168.0.103:1996/",
                         users:
                         [
                             "alice@example.com",
                             "bob@example.com"
                         ],
-                        api_version: "v001"}
-			
+                        apiVersion: "v001"}
                    });
 
 
@@ -32,7 +33,7 @@
                 sidebar : {
                     'TOC': {
                         authorized :true,
-                        icon: FaBars,
+                        icon: AppIcon,
                         component: ListsNav
                     }
                 },

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
     import {reef, session} from '@humandialog/auth.svelte'
     import {    Spinner, 
                 Page, 
@@ -9,25 +9,24 @@
                 ListSummary,
                 ListInserter,
                 ListDateProperty,
-                ListComboProperty
-                } from '@humandialog/forms.svelte'
-    import {FaPlus, FaCaretUp, FaCaretDown, FaTrash, FaRegCheckCircle, FaRegCircle} from 'svelte-icons/fa'
+                ListComboProperty,
+				mainViewReloader} from '@humandialog/forms.svelte'
+    import {FaPlus, FaCaretUp, FaCaretDown, FaTrash, FaRegCheckCircle, FaRegCircle, FaPen} from 'svelte-icons/fa'
 
     
     export let params = {}
 
-    let user;
-    let list_component;
+    let user = null;
+    let listComponent;
 
     let lists = [];
-
     const STATUS_CLOSED = 2;
+
+    $: onParamsChanged($session, $mainViewReloader);
     
-    $: load($session);
-    
-    async function load(...args)
+    async function onParamsChanged(...args)
     {
-        if(!$session.is_active)
+        if(!$session.isActive)
         {
             user = null;
             return;
@@ -39,8 +38,14 @@
             if(res)
                 lists = res.TaskList;
         }
+        
+        
+        await fetchData()
+    }
 
-         let res = await reef.post(`/user/query`,
+    async function fetchData()
+    {
+        let res = await reef.post(`/user/query`,
                                 {
                                     Id: 1,
                                     Name: "collector",
@@ -50,22 +55,23 @@
                                         {
                                             Id: 1,
                                             Association: '',
+                                            Expressions:['Id','Name'],
                                             SubTree:
                                             [
                                                 {
                                                     Id: 2,
                                                     Association: 'MyTasks',
                                                     Filter: 'Status <> STATUS_CLOSED',
-                                                    Sort: "Order",
+                                                    Sort: "UserOrder",
                                                     SubTree:[
                                                         {
                                                             Id: 3,
-                                                            Association: 'Responsible',
+                                                            Association: 'Actor',
                                                             Expressions:['$ref', 'Name']
                                                         },
                                                         {
                                                             Id: 4,
-                                                            Association: 'OnList',
+                                                            Association: 'TaskList',
                                                             Expressions:['$ref', 'Name']
                                                         }
                                                     ]
@@ -78,209 +84,146 @@
             user = res.User;
         else
             user = null
- 
     }
 
-    async function move_task_up(task :object)
+    async function reloadTasks(selectRecommendation)
     {
-        let prev = user.MyTasks.prev(task);
-        if(!prev)
-            return;
-
-        [prev.Order, task.Order] = [task.Order, prev.Order]   // swap orders
-        user.MyTasks.swap(prev, task)
-
-        list_component.refresh();
-
-        let result = await reef.post(`${task.$ref}/MoveBefore`,
-                                    {
-                                        beforeTask: prev.$ref
-                                    });
-        if(result)
-            task.Order = result.Task.Order
+        await fetchData();
+        listComponent.reload(user, selectRecommendation);
     }
+    
 
-    async function move_task_down(task :object)
+    async function deleteTask(task)
     {
-        let next = user.MyTasks.next(task);
-        if(!next)
-            return;
-
-        [next.Order, task.Order] = [task.Order, next.Order];
-        user.MyTasks.swap(task, next);
-
-        list_component.refresh();
-
-        let result = await reef.post(`${task.$ref}/MoveAfter`,
-                                    {
-                                        afterTask: next.$ref
-                                    });
-        if(result)
-            task.Order = result.Task.Order   
-    }
-
-    async function delete_task(task)
-    {
-        list_component.remove(task);
-        user.MyTasks.remove(task);
-        
         await reef.delete(task.$ref);
+        await reloadTasks(listComponent.SELECT_NEXT)
+
     }
 
-    async function finish_task(event, task)
+    async function finishTask(event, task)
     {
-        task.Status = STATUS_CLOSED;
-        
         event.stopPropagation();
 
-        list_component.remove(task);
-        user.MyTasks.remove(task);
-        
-
-        await reef.post(    task.$ref+'/set',
-                                    {
-                                        Status: STATUS_CLOSED
-                                    });
+        let result = await reef.get(`${task.$ref}/Finish`);
+        if(result)
+            await reloadTasks(listComponent.KEEP_OR_SELECT_NEXT)   
     }
 
-    async function add_task_after(title :string, after :object|null)
+    async function addTask(newTaskAttribs)
     {
-        let new_task;
-        if(after == null)
-        {
-            new_task = await reef.post(`/user/AddTask`,
-                            {
-                                title: title
-                            })
+        let res = await reef.post(`/user/MyTasks/new`, newTaskAttribs)
+        if(!res)
+            return null;
 
-            if(!new_task)
-                return null;
-            
-            user.MyTasks = [...user.MyTasks, new_task.Task]
-
-            return new_task.Task;
-        }
-        else
-        {
-            new_task = await reef.post(`/user/AddTaskAfter`,
-                            {
-                                title: title,
-                                afterTask: after.$ref
-                            })
-            if(!new_task)
-                return null;
-
-            user.MyTasks = user.MyTasks.insert_after(after, new_task.Task)
-            
-            return new_task.Task;
-        }
-        
+        let newTask = res.Task[0];
+        reloadTasks(newTask.Id)
     }
 
-
-    let page_operations = [
+    let pageOperations = [
         {
             icon: FaPlus,
             caption: '',
-            action: (focused) => { list_component.add(null) }
+            action: (f) => { listComponent.addRowAfter(null) }
         }
     ]
 
-    function get_add_operations(task)
+    function getEditOperations(task)
     {
         return [
             {
+                caption: 'Name',
+                action: (f) =>  { listComponent.edit(task, 'Title') }
+            },
+            {
                 caption: 'Summary',
-                action: (focused) =>  { list_component.edit(task, 'Summary') }
-            },
-            {
-                caption: 'List',
-                action: (focused) => { list_component.edit(task, 'OnList') }
-            },
-            {
-                caption: 'Due Date',
-                action: (focused) => { list_component.edit(task, 'DueDate') }
+                action: (f) =>  { listComponent.edit(task, 'Summary') }
             },
             {
                 separator: true
             },
             {
-            caption: 'Task',
-            columns: 2,
-            action: (focused) => { list_component.add(task) }
-        }
+                caption: 'List',
+                action: (f) => { listComponent.edit(task, 'TaskList') }
+            },
+            {
+                caption: 'Due Date',
+                action: (f) => { listComponent.edit(task, 'DueDate') }
+            }
 
         ];
     }
 
-    let task_operations = (task) => { 
-        let add_operations = get_add_operations(task)
+    let taskOperations = (task) => { 
+        let editOperations = getEditOperations(task)
         return [
                 {
                     icon: FaPlus,
                     caption: '',
-                    grid: add_operations
+                    action: (f) => { listComponent.addRowAfter(task) }
+                },
+                {
+                    icon: FaPen,
+                    caption: '',
+                    grid: editOperations
                 },
                 {
                     caption: '',
                     icon: FaCaretUp,
-                    action: (focused) => move_task_up(task)
+                    action: (f) => listComponent.moveUp(task)
                 },
                 {
                     caption: '',
                     icon: FaCaretDown,
-                    action: (focused) => move_task_down(task)
+                    action: (f) => listComponent.moveDown(task)
                 },
                 {
                     caption: '',
                     icon: FaTrash,
-                    action: (focused) => delete_task(task)
+                    action: (f) => deleteTask(task)
                 }
             ];
     }
 
-    let task_context_menu = (task) => {
-        let add_operations = get_add_operations(task);
+    let taskContextMenu = (task) => {
+        let editOperations = getEditOperations(task);
         return {
-            grid: add_operations
+            grid: editOperations
         }
     }
-
 
 </script>
 
 
 {#if user}
     <Page   self={user} 
-            cl="!bg-white dark:!bg-slate-900 w-full h-full flex flex-col overflow-y-hidden overflow-x-hidden py-1 px-1 border-0" 
-            toolbar_operations={page_operations}
+            cl="!bg-white dark:!bg-stone-900 w-full h-full flex flex-col overflow-y-auto overflow-x-hidden py-1 px-1 border-0" 
+            toolbarOperations={pageOperations}
             clears_context='props sel'>
 
         <List   self={user} 
                 a='MyTasks' 
-                toolbar_operations={task_operations} 
-                context_menu={task_context_menu}
-                bind:this={list_component}>
+                toolbarOperations={taskOperations} 
+                contextMenu={taskContextMenu}
+                orderAttrib='UserOrder'
+                bind:this={listComponent}>
             <ListTitle a='Title'/>
             <ListSummary a='Summary'/>
-            <ListInserter action={add_task_after} icon />
+            <ListInserter action={addTask} icon/>
 
-            <ListComboProperty  name="OnList" association>
+            <ListComboProperty  name="TaskList" association>
                 <ComboSource objects={lists} key="$ref" name='Name'/>
             </ListComboProperty>
 
             <ListDateProperty name="DueDate"/>
 
             <span slot="left" let:element>
-                <Icon  size={4} 
-                    component={element.Status == STATUS_CLOSED ? FaRegCheckCircle : FaRegCircle} 
-                    on:click={(e) => finish_task(e, element)} 
-                    class="cursor-pointer mt-1.5 ml-2 "/>
+                <Icon component={element.Status == STATUS_CLOSED ? FaRegCheckCircle : FaRegCircle} 
+                    on:click={(e) => finishTask(e, element)} 
+                    class="h-5 w-5 sm:w-4 sm:h-4 text-stone-500 dark:text-stone-400 cursor-pointer mt-2 sm:mt-1.5 ml-2 "/>
             </span>
 
             
         </List>
-
     </Page>
 {:else}
     <Spinner delay={3000}/>

@@ -1,268 +1,212 @@
-<script >
-    import {Spinner, show_menu, start_editing, Sidebar, SidebarBrand, SidebarGroup, SidebarItem} from '@humandialog/forms.svelte'
+<script>
+    import {Spinner, startEditing, Sidebar, SidebarBrand, SidebarGroup, SidebarItem, SidebarList, setNavigatorTitle, reloadMainView} from '@humandialog/forms.svelte'
     import {FaList, FaRegCheckCircle, FaCaretUp, FaCaretDown, FaTrash} from 'svelte-icons/fa'
     import {reef, session, Authorized} from '@humandialog/auth.svelte'
     import { onMount, afterUpdate } from "svelte";
     import {location, push} from 'svelte-spa-router'
     
-    let tasklists = [];
+    let taskLists = [];
     let user = {};
-    let just_have_completed_lists = false;
+    let justHaveCompletedLists = false;
+    let navLists;
 
-    $: current_path = $location;
-    
-    //$: checklists = $all_lists;
+    $: currentPath = $location;
 
     onMount(async () => {
-        if(!$session.is_active)
+        if(!$session.isActive)
             return;
 
         let res = await reef.get("/user");
         if(res != null)
             user = res.User;
 
-        
-        res = await reef.get("/app/Lists?sort=Order&fields=Id,Name,Order");
+        await fetchData();
+    });
+
+    async function fetchData()
+    {
+        let res = await reef.get("/app/Lists?sort=Order&fields=Id,Name,Order,$type");
         if(res != null)
         {
-            tasklists = res.TaskList;
-            just_have_completed_lists = true;
+            taskLists = res.TaskList;
+            justHaveCompletedLists = true;
         }
         else
-            tasklists = [];
-    });
+            taskLists = [];
+    }
+
+    async function reload()
+    {
+        await fetchData();
+        navLists.reload(taskLists)
+    }
 
     afterUpdate(() => {
         
-        if(!$session.is_active)
+        if(!$session.isActive)
             return;
 
-        if(just_have_completed_lists)
+        if(justHaveCompletedLists)
         {
-            just_have_completed_lists = false;
-            navigate_to_default_list_if_needed();
+            justHaveCompletedLists = false;
+            navigateToDefaultListIfNeeded();
         }
     });
 
-    function navigate_to_default_list_if_needed()
+    const title = `Octopus <span class="font-thin">mini</span>`
+    setNavigatorTitle('TOC', title)
+
+    function navigateToDefaultListIfNeeded()
     {
         if($location == "" || $location == "/")
             push('/mytasks');
     }
 
-    
-
-    async function add_list(list_name)
+    async function addList(listName, order)
     {
-        let res = await reef.post("/app/Lists/new", 
-                                    { 
-                                        Name: list_name 
-                                    });
-        if(res != null)
-        {
-            let obj = res.TaskList[0];
-            tasklists = tasklists.concat(obj);
-            return true;
-        }
-        else
-            return false;
+        await reef.post("/app/Lists/new", 
+                            { 
+                                Name: listName,
+                                Order: order
+                            });
+        reload();
     }
 
-    async function delete_list(list)
+    async function deleteList(list)
     {
-        let res = await reef.delete(`/app/Lists/${list.Id}`)
-        if(res != null)
-        {
-            tasklists = tasklists.filter(e => e.Id != list.Id);
-            if($location == "/tasklist/"+list.Id)
-            {
-                if(tasklists.length > 0)
-                    push('/tasklist/'+tasklists[0].Id);
-                else
-                    push('/');
-            }
-        }
+        await reef.delete(`/app/Lists/${list.Id}`)
+        reload();
     }
 
-    async function change_name(list, name)
+    async function changeName(list, name)
     {
         let res = await reef.post(`/app/Lists/${list.Id}/set`, 
                                 {
                                     Name: name
                                 });
-        if(res != null)
-            return true;
-        else
-            return false;
+        return (res != null);
     }
 
-    async function finish_all_on_list(list)
+    async function finishAllOnList(list)
     {
-        const STATUS_CLOSED = 2;
-        let res = await reef.get(`/app/Lists/${list.Id}/Tasks?Status<>${STATUS_CLOSED}&fields=Id`)
-        if(!res)
-            return;
-
-        let tasks_ids = res.Task;
-        let tasks = tasks_ids.map( ({Id}) => 
-                                    ({ 
-                                        Id: Id,  
-                                        Status: STATUS_CLOSED
-                                    }) );
+        await reef.get(`/app/Lists/${list.Id}/FinishAll`)
         
-        res = await reef.post(`/app/Lists/${list.Id}/Tasks/set`, tasks);
-        
-        //todo: refresh view if needed
-
-    }
-
-    async function finish_all_my_tasks()
-    {
-        const STATUS_CLOSED = 2;
-        let res = await reef.get(`/user/MyTasks?Status<>${STATUS_CLOSED}&fields=Id`)
-        if(!res)
-            return;
-
-        let tasks_ids = res.Task;
-        let tasks = tasks_ids.map( ({Id}) => 
-                                    ({ 
-                                        Id: Id,  
-                                        Status: STATUS_CLOSED
-                                    }) );
-        
-        res = await reef.post(`/user/MyTasks/set`, tasks);
-        
-        //todo: refresh view if needed
-
-    }
-
-    async function move_list_up(list)
-    {
-        let prev = tasklists.prev(list);
-        if(!prev)
-            return;
-
-        [prev.Order, list.Order] = [list.Order, prev.Order];
-        tasklists = tasklists.swap(prev, list);
-
-        let res = await reef.get(`/app/Lists/${list.Id}/MoveUp`)
-        if(res)
-            list.Order = res.TaskList.Order
-    }
-
-    async function move_list_down(list)
-    {
-        let next = tasklists.next(list);
-        if(!next)
-            return;
-
-        [next.Order, list.Order] = [list.Order, next.Order]
-        tasklists = tasklists.swap(list, next);
-
-        let res = await reef.get(`/app/Lists/${list.Id}/MoveDown`)
-        if(res)
-            list.Order = res.TaskList.Order
-    }
-    
-    function active(href, current_path)
-    {
-        let link_path = href;
-        link_path.startsWith('#')
-            link_path = link_path.substring(1)
-
-        if(current_path.startsWith(link_path))
-            return true;
-        else
-            return false;
-    }
-
-
-    function on_context_menu(e, itm)
-    {
-        let menu_operations = [];
-        if(itm == user)
-            menu_operations.push({
-                caption: 'Finish all',
-                icon: FaRegCheckCircle,
-                action: (focused) => finish_all_my_tasks()
-            });
-        else
+        if(isActive(`#/tasklist/${list.Id}`, currentPath))
         {
-            menu_operations = [
-                {
-                    caption: 'Rename',
-                    action: (focused) => start_editing(e.target)
-                },
-                {
-                    caption: 'Finish all',
-                    icon: FaRegCheckCircle,
-                    action: (focused) => finish_all_on_list(itm)
-                },
-                {
-                    caption: 'Move up',
-                    icon: FaCaretUp,
-                    action: (focused) => move_list_up(itm)
-                },
-                {
-                    caption: 'Move down',
-                    icon: FaCaretDown,
-                    action: (focused) => move_list_down(itm)
+            reloadMainView();
+        }
+    }
 
-                },
-                {
-                    separator: true
-                },
-                {
-                    caption: 'Delete',
-                    icon: FaTrash,
-                    action: (focused) => delete_list(itm)
-                }
-            ]
+    async function finishAllMyTasks()
+    {       
+        await reef.get(`/user/FinishTasks`)
+        
+        if(isActive('#/mytasks', currentPath))
+        {
+            reloadMainView();
         }
 
-        show_menu(new DOMPoint(e.clientX, e.clientY), menu_operations)
-
-        //e.stopPropagation();
-        e.preventDefault();
     }
+
+    function isActive(href, currentPath)
+    {
+        let linkPath = href;
+        linkPath.startsWith('#')
+            linkPath = linkPath.substring(1)
+
+        if(currentPath.startsWith(linkPath))
+            return true;
+        else
+            return false;
+    }
+    
+    function getUserListOperations(domNode, dataItem)
+    {
+        let menuOperations = [];
+        if(dataItem == user)
+            menuOperations.push({
+                caption: 'Finish all',
+                icon: FaRegCheckCircle,
+                action: (f) => finishAllMyTasks()
+            });
+
+        return menuOperations;
+    }
+
+    function getTaskListOperations(domNode, dataItem)
+    {
+        let menuOperations = [];
+        menuOperations = [
+            {
+                caption: 'Rename',
+                action: (f) => startEditing(domNode)
+            },
+            {
+                caption: 'Finish all',
+                icon: FaRegCheckCircle,
+                action: (f) => finishAllOnList(dataItem)
+            },
+            {
+                caption: 'Move up',
+                icon: FaCaretUp,
+                action: (f) => navLists.moveUp(dataItem)
+            },
+            {
+                caption: 'Move down',
+                icon: FaCaretDown,
+                action: (f) => navLists.moveDown(dataItem)
+
+            },
+            {
+                separator: true
+            },
+            {
+                caption: 'Delete',
+                icon: FaTrash,
+                action: (f) => deleteList(dataItem)
+            }
+        ]
+        return menuOperations
+    }
+
   </script>
   
   <Authorized>
     <Sidebar>
-        <SidebarBrand img="https://objectreef.dev/reef.svg">
+        <SidebarBrand class="hidden sm:block" >
             Octopus <span class="font-thin">mini</span>
         </SidebarBrand>
            
-            {#if tasklists && tasklists.length > 0}
-                {@const is_active=active("#/mytasks", current_path)}
-            
-            <SidebarGroup>
-                <SidebarItem   href="#/mytasks"
-                                icon={FaList}
-                                active={is_active}
-                                on:contextmenu={(e) => on_context_menu(e, user)}
-                                on:click={(e) => on_context_menu(e, user)}
-                                selectable={user}>
-                    My Tasks
-                </SidebarItem>
-            </SidebarGroup>
-
-            <SidebarGroup border inserter={add_list} inserter_placeholder='New list'>
-                {#each tasklists as list (list.Id)}
-                    {@const href = `#/tasklist/${list.Id}`}
-                    {@const is_active = active(href, current_path)}
-                    <SidebarItem   {href}
+            {#if taskLists && taskLists.length > 0}
+                <SidebarGroup>
+                    <SidebarItem   href="#/mytasks"
                                     icon={FaList}
-                                    active={is_active}
-                                    on:contextmenu={(e) => on_context_menu(e, list)}
-                                    on:click={(e) => on_context_menu(e, list)}
-                                    selectable={list}
-                                    editable={(text) => {change_name(list, text)}}>
-                        {list.Name}
+                                    active={isActive("#/mytasks", currentPath)}
+                                    operations={(node) => getUserListOperations(node, user)}
+                                    selectable={user}>
+                        My Tasks
                     </SidebarItem>
-                {/each }
-               
-            </SidebarGroup>
+                </SidebarGroup>
+
+                <SidebarGroup border>
+                    <SidebarList    objects={taskLists} 
+                                    orderAttrib='Order'
+                                    inserter={addList} 
+                                    inserterPlaceholder='New list'
+                                    bind:this={navLists}>
+                        <svelte:fragment let:item>
+                            {@const href = `#/tasklist/${item.Id}`}
+                            <SidebarItem   {href}
+                                            icon={FaList}
+                                            active={isActive(href, currentPath)}
+                                            operations={(node) => getTaskListOperations(node, item)}
+                                            selectable={item}
+                                            editable={(text) => {changeName(item, text)}}>
+                                {item.Name}
+                            </SidebarItem>
+                        </svelte:fragment>
+                    </SidebarList> 
+                </SidebarGroup>
             
             {:else}
                 <Spinner delay={3000}/>
