@@ -13,13 +13,12 @@
                     mode: 'local',
                     remote: {
                         iss :       "https://objectreef.io",
-                        clientID : "minioctopus_kcdo",
-                        clientSecret : "d4MYn0AG44w8xe8yr3KS3yrn638aN7oU",
-                        scope :     "openid profile email octopus_kduxjvaf",
+                        clientID : "<USE_YOUR_REGISTERED_CLIENT_ID>",
+                        clientSecret : "<USE_YOUR_REGISTERED_CLIENT_SECRET>",
+                        scope :     "openid profile email <USE_YOUR_DEPLOYED_APP_ID>",
                         apiVersion: "v001"},
                     local: {
                         api:    "http://127.0.0.1:1996/",
-                        //api:    "http://192.168.0.103:1996/",
                         users:
                         [
                             "alice@example.com",
