@@ -20,7 +20,7 @@
     let listComponent;
 
     let lists = [];
-    const STATUS_CLOSED = 2;
+    const STATE_FINISHED = 1000;
 
     $: onParamsChanged($session, $mainViewReloader);
     
@@ -61,7 +61,7 @@
                                                 {
                                                     Id: 2,
                                                     Association: 'MyTasks',
-                                                    Filter: 'Status <> STATUS_CLOSED',
+                                                    Filter: 'State <> STATE_FINISHED',
                                                     Sort: "UserOrder",
                                                     SubTree:[
                                                         {
@@ -196,7 +196,6 @@
 
 {#if user}
     <Page   self={user} 
-            cl="!bg-white dark:!bg-stone-900 w-full h-full flex flex-col overflow-y-auto overflow-x-hidden py-1 px-1 border-0" 
             toolbarOperations={pageOperations}
             clears_context='props sel'>
 
@@ -217,7 +216,7 @@
             <ListDateProperty name="DueDate"/>
 
             <span slot="left" let:element>
-                <Icon component={element.Status == STATUS_CLOSED ? FaRegCheckCircle : FaRegCircle} 
+                <Icon component={element.State == STATE_FINISHED ? FaRegCheckCircle : FaRegCircle} 
                     on:click={(e) => finishTask(e, element)} 
                     class="h-5 w-5 sm:w-4 sm:h-4 text-stone-500 dark:text-stone-400 cursor-pointer mt-2 sm:mt-1.5 ml-2 "/>
             </span>

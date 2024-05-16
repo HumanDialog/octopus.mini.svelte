@@ -22,7 +22,7 @@
 
     let users = [];
 
-    const STATUS_CLOSED = 2;
+    const STATE_FINISHED = 1000;
     
     $: onParamsChanged($location, $mainViewReloader);
     
@@ -71,7 +71,7 @@
                                             {
                                                 Id: 2,
                                                 Association: 'Tasks',
-                                                Filter: 'Status <> STATUS_CLOSED',
+                                                Filter: 'State <> STATE_FINISHED',
                                                 Sort: 'ListOrder',
                                                 //ShowReferences: true,
                                                 SubTree:[
@@ -122,11 +122,11 @@
 
     async function addTask(newTaskAttribs)
     {
-        let res = await reef.post(`/app/Lists/${currentList.Id}/Tasks/new`, newTaskAttribs)
+        let res = await reef.post(`/app/Lists/${currentList.Id}/CreateTaskEx`,{ properties: newTaskAttribs })
         if(!res)
             return null;
 
-        let newTask = res.Task[0];
+        let newTask = res.Task;
         await reloadTasks(newTask.Id)
     }
 
@@ -207,7 +207,6 @@
 
 {#if currentList}
     <Page   self={currentList} 
-            cl="!bg-white dark:!bg-stone-900 w-full h-full flex flex-col overflow-y-auto overflow-x-hidden py-1 px-1 border-0" 
             toolbarOperations={pageOperations}
             clears_context='props sel'
             title={currentList.Name}>
@@ -230,9 +229,16 @@
             <ListDateProperty name="DueDate"/>
 
             <span slot="left" let:element>
-                <Icon component={element.Status == STATUS_CLOSED ? FaRegCheckCircle : FaRegCircle} 
-                    on:click={(e) => finishTask(e, element)} 
-                    class="h-5 w-5 sm:w-4 sm:h-4 text-stone-500 dark:text-stone-400 cursor-pointer mt-2 sm:mt-1.5 ml-2 "/>
+                {#if element.State == STATE_FINISHED}
+                    <Icon component={FaRegCheckCircle} 
+                        class="h-5 w-5 sm:w-4 sm:h-4 text-stone-400 dark:text-stone-500  mt-2 sm:mt-1.5 ml-2 "
+                    />    
+                {:else}
+                    <Icon component={FaRegCircle} 
+                        on:click={(e) => finishTask(e, element)} 
+                        class="h-5 w-5 sm:w-4 sm:h-4 text-stone-500 dark:text-stone-400 cursor-pointer mt-2 sm:mt-1.5 ml-2 "
+                    />
+                {/if}
             </span>
 
             
