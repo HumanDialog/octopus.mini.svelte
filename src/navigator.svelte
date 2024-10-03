@@ -1,27 +1,35 @@
 <script>
-    import {Spinner, startEditing, Sidebar, SidebarBrand, SidebarGroup, SidebarItem, SidebarList, setNavigatorTitle, reloadMainView} from '@humandialog/forms.svelte'
+    import {Spinner, startEditing, Sidebar, SidebarBrand, SidebarGroup, SidebarItem, SidebarList, setNavigatorTitle, reloadMainContentPage} from '@humandialog/forms.svelte'
     import {FaList, FaRegCheckCircle, FaCaretUp, FaCaretDown, FaTrash} from 'svelte-icons/fa'
     import {reef, session, Authorized} from '@humandialog/auth.svelte'
     import { onMount, afterUpdate } from "svelte";
     import {location, push} from 'svelte-spa-router'
     
+    export let sidebar = true;
+
     let taskLists = [];
     let user = {};
-    let justHaveCompletedLists = false;
     let navLists;
-
+    
     $: currentPath = $location;
 
     onMount(async () => {
+        await initNavigator();
+        return () => {}
+    });
+
+    async function initNavigator()
+    {
         if(!$session.isActive)
             return;
-
+        
         let res = await reef.get("/user");
         if(res != null)
             user = res.User;
 
-        await fetchData();
-    });
+
+        await fetchData()
+    }
 
     async function fetchData()
     {
@@ -29,7 +37,7 @@
         if(res != null)
         {
             taskLists = res.TaskList;
-            justHaveCompletedLists = true;
+            //justHaveCompletedLists = true;
         }
         else
             taskLists = [];
@@ -41,7 +49,7 @@
         navLists.reload(taskLists)
     }
 
-    afterUpdate(() => {
+    /*afterUpdate(() => {
         
         if(!$session.isActive)
             return;
@@ -51,9 +59,9 @@
             justHaveCompletedLists = false;
             navigateToDefaultListIfNeeded();
         }
-    });
-
-    const title = `Octopus <span class="font-thin">mini</span>`
+    });*/
+    
+    /*const title = `Octopus <span class="font-thin">mini</span>`
     setNavigatorTitle('TOC', title)
 
     function navigateToDefaultListIfNeeded()
@@ -61,7 +69,7 @@
         if($location == "" || $location == "/")
             push('/mytasks');
     }
-
+*/
     async function addList(listName, order)
     {
         await reef.post("/app/Lists/new", 
@@ -91,9 +99,9 @@
     {
         await reef.get(`/app/Lists/${list.Id}/FinishAll`)
         
-        if(isActive(`#/tasklist/${list.Id}`, currentPath))
+        if(isRoutingTo(`#/tasklist/${list.Id}`, currentPath))
         {
-            reloadMainView();
+            reloadMainContentPage();
         }
     }
 
@@ -101,15 +109,18 @@
     {       
         await reef.get(`/user/FinishTasks`)
         
-        if(isActive('#/mytasks', currentPath))
+        if(isRoutingTo('#/mytasks', currentPath))
         {
-            reloadMainView();
+            reloadMainContentPage();
         }
 
     }
 
-    function isActive(href, currentPath)
+    function isRoutingTo(href, currentPath)
     {
+        if(!sidebar)
+            return false;
+
         let linkPath = href;
         linkPath.startsWith('#')
             linkPath = linkPath.substring(1)
@@ -169,19 +180,27 @@
         return menuOperations
     }
 
+    export function requestAddList()
+    {
+        navLists.add(async (listName, order) => {
+            await reef.post("/app/Lists/new", 
+                            { 
+                                Name: listName,
+                                Order: order
+                            });
+            reload();
+        })
+    }
+
   </script>
   
-  <Authorized>
-    <Sidebar>
-        <SidebarBrand class="hidden sm:block" >
-            Octopus <span class="font-thin">mini</span>
-        </SidebarBrand>
+  {#if sidebar}
            
             {#if taskLists && taskLists.length > 0}
                 <SidebarGroup>
                     <SidebarItem   href="#/mytasks"
                                     icon={FaList}
-                                    active={isActive("#/mytasks", currentPath)}
+                                    active={isRoutingTo("#/mytasks", currentPath)}
                                     operations={(node) => getUserListOperations(node, user)}
                                     selectable={user}>
                         My Tasks
@@ -198,7 +217,7 @@
                             {@const href = `#/tasklist/${item.Id}`}
                             <SidebarItem   {href}
                                             icon={FaList}
-                                            active={isActive(href, currentPath)}
+                                            active={isRoutingTo(href, currentPath)}
                                             operations={(node) => getTaskListOperations(node, item)}
                                             selectable={item}
                                             editable={(text) => {changeName(item, text)}}>
@@ -212,8 +231,38 @@
                 <Spinner delay={3000}/>
             {/if}
 
-        </Sidebar>
-</Authorized>
+{:else}
+        {#if taskLists && taskLists.length > 0}
+            <SidebarGroup>
+                <SidebarItem   href="#/mytasks"
+                                icon={FaList}
+                                operations={(node) => getUserListOperations(node, user)}
+                                item={user}>
+                    My Tasks
+                </SidebarItem>
+            </SidebarGroup>
+
+            <SidebarGroup border>
+                <SidebarList    objects={taskLists} 
+                                orderAttrib='Order'
+                                bind:this={navLists}>
+                    <svelte:fragment let:item>
+                        {@const href = `#/tasklist/${item.Id}`}
+                        <SidebarItem   {href}
+                                        icon={FaList}
+                                        operations={(node) => getTaskListOperations(node, item)}
+                                        {item}
+                                        editable={(text) => {changeName(item, text)}}>
+                            {item.Name}
+                        </SidebarItem>
+                    </svelte:fragment>
+                </SidebarList> 
+            </SidebarGroup>
+
+        {:else}
+            <Spinner delay={3000}/>
+        {/if}    
+{/if}
 
 
     

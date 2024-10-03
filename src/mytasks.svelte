@@ -10,7 +10,7 @@
                 ListInserter,
                 ListDateProperty,
                 ListComboProperty,
-				mainViewReloader} from '@humandialog/forms.svelte'
+				mainContentPageReloader} from '@humandialog/forms.svelte'
     import {FaPlus, FaCaretUp, FaCaretDown, FaTrash, FaRegCheckCircle, FaRegCircle, FaPen} from 'svelte-icons/fa'
 
     
@@ -22,7 +22,7 @@
     let lists = [];
     const STATE_FINISHED = 1000;
 
-    $: onParamsChanged($session, $mainViewReloader);
+    $: onParamsChanged($session, $mainContentPageReloader);
     
     async function onParamsChanged(...args)
     {

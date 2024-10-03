@@ -11,7 +11,7 @@
                 ListInserter,
                 ListDateProperty,
                 ListComboProperty,
-				mainViewReloader} from '@humandialog/forms.svelte'
+				mainContentPageReloader} from '@humandialog/forms.svelte'
     import {FaPlus, FaCaretUp, FaCaretDown, FaTrash, FaRegCheckCircle, FaRegCircle, FaPen} from 'svelte-icons/fa'
 
     export let params = {}
@@ -24,7 +24,7 @@
 
     const STATE_FINISHED = 1000;
     
-    $: onParamsChanged($location, $mainViewReloader);
+    $: onParamsChanged($location, $mainContentPageReloader);
     
     async function onParamsChanged(...args)
     {
@@ -179,14 +179,15 @@
                 },
                 {
                     caption: '',
-                    icon: FaCaretUp,
-                    action: (focused) => listComponent.moveUp(task)
-                },
-                {
-                    caption: '',
                     icon: FaCaretDown,
                     action: (focused) => listComponent.moveDown(task)
                 },
+                {
+                    caption: '',
+                    icon: FaCaretUp,
+                    action: (focused) => listComponent.moveUp(task)
+                },
+                
                 {
                     caption: '',
                     icon: FaTrash,
